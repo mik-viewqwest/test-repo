@@ -1,0 +1,56 @@
+name: Update Release README
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - release
+
+jobs:
+  update-readme:
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: release
+
+      - name: Prepare release section
+        id: prepare
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_DESC="${{ github.event.pull_request.body }}"
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+
+          DATE=$(date +"%b %d, %Y")
+
+          # Construct the markdown text
+          echo "### Release - $DATE" >> new_release_md.txt
+          echo "> $PR_TITLE" >> new_release_md.txt
+          echo "" >> new_release_md.txt
+          echo "**Description:** $PR_DESC" >> new_release_md.txt
+          echo "" >> new_release_md.txt
+          echo "> You can check the commits here." >> new_release_md.txt
+          echo "> **Reference:** https://github.com/${{ github.repository }}/pull/$PR_NUMBER" >> new_release_md.txt
+          echo "" >> new_release_md.txt
+          echo "**Changes by:**" >> new_release_md.txt
+          echo "- $AUTHOR" >> new_release_md.txt
+
+      - name: Update README.md
+        run: |
+          # Prepend or insert just after the top
+          sed -i "1s|^|$(cat new_release_md.txt)\n\n|" README.md
+
+      - name: Commit and push changes
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update README for release $DATE"
+          title: "Update README for release $DATE"
+          body: "Automated update of release section"
